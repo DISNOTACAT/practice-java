@@ -1,6 +1,7 @@
-package section09;
+package section09.localClass;
 
 import java.lang.reflect.Field;
+import section09.localClass.Printer;
 
 public class LocalOuterV3 {
 

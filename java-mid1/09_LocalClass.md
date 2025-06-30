@@ -150,3 +150,38 @@ public class OuterClass {
     Printer print1 = new LocalPrinter();
     Printer print2 = new LocalPrinter();
     ```
+  
+> **어떻게 외부에서 코드 조각을 전달할 수 있을까?**  
+> 코드 조각은 보통 메서드(함수)에 정의한다. 따라서 코드 조각을 전달하기 위해서는 메서드가 필요하다. 하지만 메서드를 전달하려면 어떻게 해야하는가?    
+> 
+> 정답은 인스턴스를 대신 전달하고, 인스턴스에 있는 메서드를 호출하면 된다.  
+> 예제) [Ex1RefMainV1.java](src%2Fsection09%2Fanonymous%2FEx1RefMainV1.java)
+
+> 정리  
+> 문자열 같은 데이터를 메서드에 전달할 때는 String, int와 같은 각 데이터에 맞는 타입을 전달하면 된다.  
+> 코드 조각을 메서드에 전달할 때는 인스턴스를 전달하고 해당 인스턴스에 있는 메서드를 호출하면 된다.
+
+
+## 람다(lamba)
+자바8 이전까지는 메서드에 인수로 전달할 수 있는 것은 크게 2가지였다.
+- int, double과 같은 기본형 타입
+- Process, Member와 같은 참조형 탕비(인스턴스)
+
+자바8에 들어서면서 큰 변화가 있었는데, 바로 메서드를 인수로 전달할 수 있게 되었다. 이것을 람다라 한다.
+
+```java
+public static void main(String[] args) {
+
+    hello(() -> {
+      int randomValue = new Random().nextInt(6) + 1;
+      System.out.println("주사위 = " + randomValue);
+    });
+
+    hello(() -> {
+      for (int i = 0; i < 3; i++) {
+        System.out.println("i = " + i);
+      }
+    });
+  }
+```
+
