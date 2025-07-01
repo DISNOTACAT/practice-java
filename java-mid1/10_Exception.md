@@ -164,3 +164,165 @@ try {
 예외를 계층화하면 다음과 같은 장점이 있다.
 - 자바에서 예외는 객체이다. 따라서 부모 예외를 잡거나 던지면, 자식 예외도 함께 처리할 수 있다.
 - 특정 예외를 잡아서 처리하고 싶으면 하위 예외를 잡아서 처리하면 된다.
+
+
+# 실무 예외 처리 방안
+### 처리할 수 없는 예외
+상대 네트워크의 문제로 문제가 발생했을 경우 예외를 잡는다고 해결이 되는 것일까? 이럴 경우 고객에게 "현재 시스템에 문제가 있습니다"라는 오류 메시지 또는 페이지를 보여주고 내부 개발자가 문제 상황을 인지할 수 있도록 로그를 남겨두어야 한다.
+
+### 체크 예외의 부담
+체크 예외는 많이 사용되었다. 그런데 앞서 설명한 것처럼 처리할 수 없는 예외가 많아지고, 프로그램이 복잡해지며 체크 예외를 사용하느 것이 부담스러워졌다.
+실무에서는 수 많은 외부 시스템과 연동된다. 이 경우 서비스는 모든 예외를 잡아 처리해야한다. 하지만 처리할 수 없는 예외들이 있기 때문에 던지는 것이 더 나은 결정 일 수 있다.
+이것을 던질 경우, throws에 명시해야할 예외가 매우 많아지게 된다. 결국 계속 밖으로 던지는 지저분한 코드가 생기게 되고, 최종 적으로 throws Exception 한 줄로 줄일 수 있겠지만
+이것은 치명적인 문제가 있다.
+
+모든 체크 예외를 다 밖으로 던지는 문제가 발생한다. 중요한 체크 예외가 있더라도 놓치게 된다. 따라서 꼭 필요한 경우가 아니라면 Exception 자체를 밖으로 던지는 것은 좋지 않은 방법이다.
+
+### 언체크 예외 사용 시나리오
+언체크 예외는 throws 선언 없이도 자동으로 밖으로 던진다. 앞서 이야기한 처리할 수 없는 예외의 경우 던지는 것이 나은 방법이다. 만약 일부 언체크 예외를 잡아서 처리할 수 있다면 잡아서 처리하면 된다.
+
+### 예외 공통 처리
+이렇게 처리할 수 없는 예외는 공통으로 처리할 수 있는 곳을 만들어 처리하면 된다. 시스템 문제가 있다는 메시지 또는 페이지를 보여주고 오류에 대한 로그를 남겨두면 된다.
+
+### 구현
+
+- 언체크 예외를 상속 받는다.
+```java
+public class NetworkClientExceptionV4 extends RuntimeException {
+
+  public NetworkClientExceptionV4(String message) {
+    super(message);
+  }
+}
+```
+- 서비스는 어차피 처리할 수 없는 예외는 던져버리고, 본연의 로직에 집중하여 간결한 코드를 작성할 수 있다.
+```java
+public class NetworkServiceV4 {
+  public void sendMessage(String data) {
+    String address = "http://example.com";
+    NetworkClientV4 client = new NetworkClientV4(address);
+    client.initError(data);
+
+    try{
+      client.connect();
+      client.send(data);
+    } finally {
+      client.disconnect();
+    }
+  }
+}
+```
+
+- main에서는 공통 예외 로직을 추가하여 처리한다.
+```java
+public class MainV4 {
+
+  public static void main(String[] args) {
+    NetworkServiceV4 service = new NetworkServiceV4();
+
+    Scanner scanner = new Scanner(System.in);
+    while(true) {
+      System.out.print("전송할 문자: ");
+      String input = scanner.nextLine();
+      if (input.equals("exit")) {
+        break;
+      }
+
+      try{
+        service.sendMessage(input);
+      } catch (Exception e) {
+        exceptionHandler(e);
+      }
+
+      System.out.println();
+    }
+    System.out.println("프로그램을 정상 종료합니다.");
+  }
+
+  // 공통 예외 처리 로직
+  private static void exceptionHandler(Exception e) {
+    System.out.println("사용자 메시지: 죄송합니다. 알 수 없는 문제가 발생했습니다.");
+    System.out.println("===log: 개발자용 디버깅 메시지===");
+    e.printStackTrace(System.out);
+//    e.printStackTrace();
+
+    // 필요시 예외 별로 별도의 로직 추가
+    if (e instanceof SendExceptionV4 sendEx) {
+      System.out.println("[전송 오류] 전송 데이터: " + sendEx.getSendData());
+    }
+  }
+}
+```
+- e.printStackTrace()
+  - 예외 메시지와 스택 트레이스를 출력할 수 있다.
+  - 이 기능을 사용하면 예외가 발생한 지점을 역으로 추적할 수 있다.
+  - (참고로 예제에서는 e.printStacktrace(System.out)을 사용하여 표준 출력으로 보냈다.)
+  - e.printStackTrace()를 사용하면 System.err 표준 오류에 결과를 출력한다.
+    - IDE에서는 출력 결과를 빨간색으로 보여준다.
+    - 일반적으로 사용하는 방법
+> 실무에서는 콘솔에 출력하지 않고, 로그 라이브러리를 사용하기 때문에 파일로 로그를 관리한다.
+    
+
+## try-with-resources
+try에서 외부자원을 사용하고 끝나면 자원을 반납하는 패턴이 반복되며, try-with0resources라는 편의 기능을 자바 7에서 도입했다.
+- AutoCloseable 인터페이스를 구현해야 한다.
+- 인터페이스를 구현하면 Try with resources를 사용할 때 try가 끝나는 시점에 close()가 자동으로 호출된다.
+```java
+package section10.ex4;
+
+
+import section10.ex4.exception.ConnectExceptionV4;
+import section10.ex4.exception.SendExceptionV4;
+
+public class NetworkClientV5 implements AutoCloseable {
+
+  private final String address;
+  public boolean connectError;
+  public boolean sendError;
+
+  public NetworkClientV5(String address) {
+    this.address = address;
+  }
+
+  public void connect() throws ConnectExceptionV4 {...}
+  public void send(String data) throws SendExceptionV4 {...}
+  
+  public void disconnect() {...}
+  public void initError(String data) {...}
+
+  @Override
+  public void close() {
+    System.out.println("NetworkClientV5.class");
+    disconnect();
+  }
+}
+```
+- close() : try 가 끝나면 자동으로 호출된다. 종료 시점에 자원을 반납하는 방법을 여기에 저으이하면 된다.
+- Try with resources 구문은 try 괄호 안에 사용할 자원을 명시한다.
+```java
+package section10.ex4;
+
+public class NetworkServiceV5 {
+
+  public void sendMessage(String data) {
+    String address = "http://example.com";
+
+    try(NetworkClientV5 client = new NetworkClientV5(address)){
+      client.initError(data);
+      client.connect();
+      client.send(data);
+    } catch (Exception e) {
+      System.out.println("예외 확인 : " + e.getMessage());
+      throw e;
+    }
+  }
+}
+```
+- 이 자원은 try 구문이 끝나면 자동으로 AutoCloseable.close()를 호출해서 자원을 해제한다.
+- catch 블럭 없이 try만 있어도 close()는 호출된다.
+
+### try-with-resources의 장점
+- 리소스 누수 방지
+- 코드 간결성 및 가독성 향상
+- 스코프 범위 한정 (코드 유지보수가 쉬워진다.)
+- 조금 더 빠른 자원 해제 (try 직후로, finally보다 빠른 위치에서 동작한다.)
