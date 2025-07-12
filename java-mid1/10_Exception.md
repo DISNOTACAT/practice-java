@@ -327,4 +327,3 @@ public class NetworkServiceV5 {
 - 스코프 범위 한정 (코드 유지보수가 쉬워진다.)
 - 조금 더 빠른 자원 해제 (try 직후로, finally보다 빠른 위치에서 동작한다.)
 
----
